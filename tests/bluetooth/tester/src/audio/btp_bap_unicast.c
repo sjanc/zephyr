@@ -521,10 +521,14 @@ static void stream_configured(struct bt_bap_stream *stream,
 static void stream_qos_set(struct bt_bap_stream *stream)
 {
 	struct btp_bap_unicast_stream *u_stream = stream_bap_to_unicast(stream);
+	int err;
 
 	LOG_DBG("QoS set stream %p", stream);
 	btp_send_ascs_operation_completed_ev(stream->conn, u_stream->ase_id,
 					     BT_ASCS_QOS_OP, BTP_ASCS_STATUS_SUCCESS);
+
+	err = bt_bap_stream_connect(stream);
+	LOG_DBG("bt_bap_stream_connect %p err=%d", stream, err);
 }
 
 static void stream_enabled(struct bt_bap_stream *stream)
@@ -1450,7 +1454,12 @@ uint8_t btp_ascs_receiver_start_ready(const void *cmd, uint16_t cmd_len,
 			 */
 			k_sleep(K_MSEC(1000));
 			continue;
-		} else if (err != 0 && err != -EALREADY) {
+		} else if (err == -EALREADY) {
+			err = bt_bap_stream_start(stream);
+			if (err != 0) {
+				return BTP_STATUS_FAILED;
+			}
+		} else if (err != 0) {
 			LOG_DBG("Could not connect stream: %d", err);
 			return BTP_STATUS_FAILED;
 		}
